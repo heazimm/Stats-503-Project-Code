@@ -1,0 +1,119 @@
+---
+title: "mlp"
+author: "Feng yuteng"
+date: "2022/4/10"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo =FALSE)
+```
+
+```{r}
+data<- read.csv("https://archive.ics.uci.edu/ml/machine-learning-databases/00468/online_shoppers_intention.csv")
+cols <- c("OperatingSystems", "Region", "TrafficType","VisitorType","Browser","Month","Weekend")
+
+data[cols]<- lapply(data[cols], factor)
+data[cols]<- lapply(data[cols], as.numeric)
+data<-subset(data,select = -SpecialDay)
+
+str(data)
+
+set.seed(1)
+sample<- sample.int(n = nrow(data),size = floor(0.7*nrow(data)),replace = FALSE)
+train<- data[sample,]
+test<- data[-sample,]
+
+
+
+
+
+
+```
+
+
+
+
+
+
+```{r}
+library(keras)
+library(tensorflow)
+library(tidyverse)
+use_condaenv("keras-tf", required = T)
+
+
+
+set.seed(101)
+model <- keras_model_sequential()
+model %>%  layer_dense(units = 64) %>% 
+  layer_activation('relu') %>%
+    # First hidden layer
+  layer_dense(
+    units              = 16, 
+    kernel_initializer = "uniform", 
+    activation         = "relu", 
+    ) %>%
+  layer_dropout(rate = 0.5)%>%
+  layer_dense(units = 1) %>% 
+  layer_activation('sigmoid')
+
+
+model %>% compile( 
+  optimizer = optimizer_rmsprop(),
+  loss = loss_binary_crossentropy,
+  metrics = c("accuracy")
+)
+
+x<-subset(train, select = -Revenue)
+x1<- subset(train, select = -Revenue)
+x<-as.matrix(x)
+x_label <- as.matrix(train$Revenue)
+x_test1<- subset(test,select = -Revenue)
+x_test<- as.matrix(subset(test,select = -Revenue))
+y_test<- as.matrix(test$Revenue)
+
+
+mlp<-model%>% fit(x, x_label, epochs = 30, validation_split = 0.2, batch_size = 128)
+
+plot(mlp)
+
+
+
+score<- model%>% evaluate(x_test,y_test, batch_size = 128)
+
+score[1]
+score[2]
+1-score[2]
+
+result<- cbind(score[1],score[2],1-score[2])%>%as.data.frame()
+colnames(result)<-c("loss", "accuracy","misclassification")
+rownames(result)<-c()
+result
+library(kableExtra)
+kable(result)
+#predictions<-predict(model,x_test)>0.5
+
+#inaccurate_prediction<-length(predictions[predictions== TRUE])/length(predictions)
+
+
+
+
+class(model)
+
+class<-model%>%predict(x_test)>(0.5)
+
+
+yhat_keras_prob_vec <- predict(object = model, x = x_test) %>% as.vector()
+
+estimates_keras_tbl <- tibble(
+  truth      = as.factor(y_test) %>% fct_recode(true = "1", false = "0"),
+  estimate   = as.factor(class) %>% fct_recode(true = "1", false = "0"),
+  class_prob = yhat_keras_prob_vec
+)
+
+```
+
+
